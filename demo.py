@@ -18,3 +18,4 @@ else:
 		print(f"{value} 是斐波那契数。")
 	else:
 		print(f"{value} 不是斐波那契数。")
+print("程序结束。")
