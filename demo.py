@@ -19,3 +19,4 @@ else:
 	else:
 		print(f"{value} 不是斐波那契数。")
 print("程序结束。")
+print("感谢使用斐波那契数检查器！")
