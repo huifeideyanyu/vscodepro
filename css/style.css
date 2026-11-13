@@ -825,3 +825,46 @@ body.ma-auth-page .ma-auth-card {
     max-width: 400px !important;
     margin: 0 auto !important;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ==============================
+   MUSEUM 顶部登录入口
+   独立命名空间：museum-topbar-auth-
+============================== */
+
+.museum-topbar-auth-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.museum-topbar-auth-link {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 22px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.museum-topbar-auth-link:hover {
+    background: var(--accent);
+    color: #17130d;
+}

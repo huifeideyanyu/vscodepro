@@ -1,23 +1,43 @@
 
+import { supabase } from "./supabase.js";
+
+import {
+    getAlbums,
+    addAlbum,
+    updateAlbum,
+    deleteAlbum,
+    uploadCover,
+    migrateLocalAlbums
+} from "./storage.js";
+
 // ===================================
-// MUSEUM 主程序
+// 1. 页面元素
 // ===================================
 
-// 页面元素
-const albumGrid = document.getElementById("albumGrid");
-const searchInput = document.getElementById("searchInput");
-const genreFilter = document.getElementById("genreFilter");
-const sortSelect = document.getElementById("sortSelect");
+const $ = id => document.getElementById(id);
 
-const albumModal = document.getElementById("albumModal");
-const albumForm = document.getElementById("albumForm");
+const albumGrid = $("albumGrid");
+const searchInput = $("searchInput");
+const genreFilter = $("genreFilter");
+const sortSelect = $("sortSelect");
 
-const addAlbumBtn = document.getElementById("addAlbumBtn");
-const closeModal = document.getElementById("closeModal");
+const albumModal = $("albumModal");
+const albumForm = $("albumForm");
+
+const addAlbumBtn = $("addAlbumBtn");
+const closeModal = $("closeModal");
+
+const authArea = $("authArea");
 
 let currentPage = "home";
+let albumsCache = [];
+let currentUser = null;
+let isSaving = false;
 
-// 防止用户输入的文字破坏 HTML
+// ===================================
+// 2. 工具函数
+// ===================================
+
 function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
         "&": "&amp;",
@@ -28,39 +48,38 @@ function escapeHTML(value) {
     })[char]);
 }
 
-// 生成唯一 ID
 function generateId() {
-    return "album_" + Date.now() + "_" +
-        Math.random().toString(36).slice(2, 8);
+    return crypto.randomUUID();
+}
+
+function showError(error) {
+    console.error(error);
+    alert(error.message || "操作失败，请稍后重试");
 }
 
 // ===================================
-// 1. 页面初始化
+// 3. 加载云端专辑
 // ===================================
 
-function initApp() {
-    initializeStorage();
+async function refreshAlbums() {
+    albumsCache = await getAlbums();
 
     renderAlbums();
     updateStatistics();
-
-    console.log("MUSEUM 已启动！");
 }
 
 // ===================================
-// 2. 获取当前筛选后的专辑
+// 4. 筛选专辑
 // ===================================
 
 function getFilteredAlbums() {
-    let albums = getAlbums();
+    let albums = [...albumsCache];
 
-    // 最爱页面
     if (currentPage === "favorites") {
         albums = albums.filter(album => album.favorite);
     }
 
-    // 搜索
-    const keyword = searchInput.value
+    const keyword = (searchInput?.value || "")
         .trim()
         .toLowerCase();
 
@@ -71,17 +90,13 @@ function getFilteredAlbums() {
         );
     }
 
-    // 风格筛选
-    const genre = genreFilter.value;
+    const genre = genreFilter?.value || "all";
 
     if (genre !== "all") {
-        albums = albums.filter(
-            album => album.genre === genre
-        );
+        albums = albums.filter(album => album.genre === genre);
     }
 
-    // 排序
-    const sortType = sortSelect.value;
+    const sortType = sortSelect?.value || "newest";
 
     if (sortType === "rating") {
         albums.sort((a, b) => b.rating - a.rating);
@@ -99,16 +114,17 @@ function getFilteredAlbums() {
 }
 
 // ===================================
-// 3. 渲染专辑
+// 5. 渲染专辑
 // ===================================
 
 function renderAlbums() {
+    if (!albumGrid) return;
+
     const albums = getFilteredAlbums();
 
-    document.getElementById("resultCount").textContent =
-        `${albums.length} RESULTS`;
+    $("resultCount").textContent = `${albums.length} RESULTS`;
 
-    document.getElementById("collectionTitle").textContent =
+    $("collectionTitle").textContent =
         currentPage === "favorites" ? "最爱专辑" : "全部专辑";
 
     if (albums.length === 0) {
@@ -125,156 +141,156 @@ function renderAlbums() {
         <article class="album-card" data-id="${escapeHTML(album.id)}">
 
             <div class="album-cover-wrap">
-                <img
-                    class="album-cover"
-                    src="${escapeHTML(album.cover || "")}"
-                    alt="${escapeHTML(album.name)}"
-                    loading="lazy"
-                    onerror="this.style.visibility='hidden'"
-                >
+                ${album.cover ? `
+                    <img
+                        class="album-cover"
+                        src="${escapeHTML(album.cover)}"
+                        alt="${escapeHTML(album.name)}"
+                        loading="lazy"
+                        onerror="this.style.visibility='hidden'"
+                    >
+                ` : ""}
             </div>
 
             <div class="album-info">
+
                 <h3>${escapeHTML(album.name)}</h3>
 
                 <p>${escapeHTML(album.artist)}</p>
 
                 <div class="album-meta">
                     <span>${escapeHTML(album.year || "年份未知")}</span>
-
                     <span class="album-rating">
-                        ★ ${Number(album.rating).toFixed(1)}
+                        ★ ${Number(album.rating || 0).toFixed(1)}
                     </span>
                 </div>
 
                 <div class="album-actions">
-                    <button class="favorite-btn"
+
+                    <button
+                        class="favorite-btn"
                         data-action="favorite"
                         data-id="${escapeHTML(album.id)}">
                         ${album.favorite ? "♥ 已收藏" : "♡ 收藏"}
                     </button>
 
-                    <button data-action="edit"
+                    <button
+                        data-action="edit"
                         data-id="${escapeHTML(album.id)}">
                         编辑
                     </button>
 
-                    <button class="delete-btn"
+                    <button
+                        class="delete-btn"
                         data-action="delete"
                         data-id="${escapeHTML(album.id)}">
                         删除
                     </button>
+
                 </div>
             </div>
-
         </article>
     `).join("");
 }
 
 // ===================================
-// 4. 更新统计数据
+// 6. 统计数据
 // ===================================
 
 function updateStatistics() {
-    const albums = getAlbums();
+    const total = albumsCache.length;
 
-    const total = albums.length;
-
-    const favorites = albums.filter(
+    const favorites = albumsCache.filter(
         album => album.favorite
     ).length;
 
     const average = total
-        ? albums.reduce((sum, album) =>
-            sum + Number(album.rating), 0) / total
+        ? albumsCache.reduce(
+            (sum, album) => sum + Number(album.rating || 0), 0
+        ) / total
         : 0;
 
-    document.getElementById("totalCount").textContent = total;
+    $("totalCount").textContent = total;
 
-    document.getElementById("albumCount").textContent =
+    $("albumCount").textContent =
         String(total).padStart(2, "0");
 
-    document.getElementById("favoriteCount").textContent =
-        favorites;
+    $("favoriteCount").textContent = favorites;
 
-    document.getElementById("averageRating").textContent =
-        average.toFixed(1);
+    $("averageRating").textContent = average.toFixed(1);
 }
 
 // ===================================
-// 5. 打开添加专辑弹窗
+// 7. 添加专辑弹窗
 // ===================================
 
 function openAddModal() {
     albumForm.reset();
 
-    document.getElementById("albumId").value = "";
+    $("albumId").value = "";
+    $("albumRating").value = 8.0;
 
-    document.getElementById("modalTitle").textContent =
-        "添加新专辑";
-
-    document.getElementById("albumRating").value = 8.0;
+    $("modalTitle").textContent = "添加新专辑";
 
     albumModal.classList.add("show");
 }
 
 // ===================================
-// 6. 打开编辑专辑弹窗
+// 8. 编辑专辑弹窗
 // ===================================
 
 function openEditModal(id) {
-    const album = getAlbums().find(
-        item => item.id === id
-    );
+    const album = albumsCache.find(item => item.id === id);
 
     if (!album) return;
 
     albumForm.reset();
 
-    document.getElementById("albumId").value = album.id;
-    document.getElementById("albumName").value = album.name;
-    document.getElementById("artistName").value = album.artist;
-    document.getElementById("releaseYear").value = album.year || "";
-    document.getElementById("albumGenre").value = album.genre;
-    document.getElementById("albumRating").value = album.rating;
-    document.getElementById("albumReview").value = album.review || "";
-    document.getElementById("albumFavorite").checked = album.favorite;
+    $("albumId").value = album.id;
+    $("albumName").value = album.name;
+    $("artistName").value = album.artist;
+    $("releaseYear").value = album.year || "";
+    $("albumGenre").value = album.genre || "Other";
+    $("albumRating").value = album.rating;
+    $("albumReview").value = album.review || "";
+    $("albumFavorite").checked = album.favorite;
 
-    document.getElementById("modalTitle").textContent =
-        "编辑专辑";
+    $("albumCover").value = "";
+
+    $("modalTitle").textContent = "编辑专辑";
 
     albumModal.classList.add("show");
 }
 
-// 关闭弹窗
 function hideModal() {
     albumModal.classList.remove("show");
 }
 
 // ===================================
-// 7. 保存专辑
+// 9. 保存专辑
 // ===================================
 
-albumForm.addEventListener("submit", async function(event) {
+albumForm?.addEventListener("submit", async event => {
     event.preventDefault();
 
-    const id = document.getElementById("albumId").value;
+    if (isSaving) return;
 
-    const name = document.getElementById("albumName").value.trim();
-    const artist = document.getElementById("artistName").value.trim();
+    const id = $("albumId").value;
 
-    const yearValue = document.getElementById("releaseYear").value;
+    const name = $("albumName").value.trim();
+    const artist = $("artistName").value.trim();
+
+    const yearValue = $("releaseYear").value;
     const year = yearValue ? Number(yearValue) : null;
 
-    const rating = Number(
-        document.getElementById("albumRating").value
-    );
+    const rating = Number($("albumRating").value);
 
-    const genre = document.getElementById("albumGenre").value;
-    const review = document.getElementById("albumReview").value.trim();
-    const favorite = document.getElementById("albumFavorite").checked;
+    const genre = $("albumGenre").value;
+    const review = $("albumReview").value.trim();
 
-    const file = document.getElementById("albumCover").files[0];
+    const favorite = $("albumFavorite").checked;
+
+    const file = $("albumCover").files[0];
 
     if (!name || !artist) {
         alert("请填写专辑名称和艺术家！");
@@ -292,80 +308,68 @@ albumForm.addEventListener("submit", async function(event) {
         return;
     }
 
-    // 读取上传的封面图片
-    let cover = "";
+    isSaving = true;
 
-    const oldAlbum = id
-        ? getAlbums().find(album => album.id === id)
-        : null;
+    const submitButton = albumForm.querySelector(
+        'button[type="submit"]'
+    );
 
-    cover = oldAlbum ? oldAlbum.cover : "";
+    submitButton.disabled = true;
+    submitButton.textContent = "正在保存...";
 
-    if (file) {
-        if (!file.type.startsWith("image/")) {
-            alert("请选择图片文件！");
-            return;
+    try {
+        const oldAlbum = id
+            ? albumsCache.find(album => album.id === id)
+            : null;
+
+        let cover = oldAlbum?.cover || "";
+
+        // 上传新封面
+        if (file) {
+            cover = await uploadCover(file, currentUser.id);
         }
 
-        if (file.size > 1024 * 1024) {
-            alert("图片不能超过 1MB，请压缩后再上传！");
-            return;
+        const albumData = {
+            id: id || generateId(),
+            name,
+            artist,
+            year,
+            genre,
+            rating,
+            favorite,
+            review,
+            cover,
+            createdAt: oldAlbum?.createdAt || new Date().toISOString()
+        };
+
+        if (id) {
+            await updateAlbum(id, albumData);
+        } else {
+            await addAlbum(albumData);
         }
 
-        try {
-            cover = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
+        hideModal();
+        albumForm.reset();
 
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = () => reject(reader.error);
+        await refreshAlbums();
 
-                reader.readAsDataURL(file);
-            });
-        } catch (error) {
-            alert("图片读取失败！");
-            return;
-        }
+        alert(id ? "专辑修改成功！" : "专辑添加成功！");
+
+    } catch (error) {
+        showError(error);
+
+    } finally {
+        isSaving = false;
+        submitButton.disabled = false;
+        submitButton.textContent = "保存专辑";
     }
-
-    const albumData = {
-        id: id || generateId(),
-        name,
-        artist,
-        year,
-        genre,
-        rating,
-        favorite,
-        review,
-        cover,
-        createdAt: oldAlbum
-            ? oldAlbum.createdAt
-            : new Date().toISOString()
-    };
-
-    let success;
-
-    if (id) {
-        success = updateAlbum(id, albumData);
-    } else {
-        success = addAlbum(albumData);
-    }
-
-    if (!success) return;
-
-    hideModal();
-    albumForm.reset();
-
-    renderAlbums();
-    updateStatistics();
-
-    alert(id ? "专辑修改成功！" : "专辑添加成功！");
 });
 
 // ===================================
-// 8. 专辑卡片操作
+// 10. 专辑卡片操作
 // ===================================
 
-albumGrid.addEventListener("click", function(event) {
+albumGrid?.addEventListener("click", async event => {
     const button = event.target.closest("button[data-action]");
 
     if (!button) return;
@@ -375,81 +379,177 @@ albumGrid.addEventListener("click", function(event) {
 
     if (action === "edit") {
         openEditModal(id);
+        return;
     }
 
     if (action === "delete") {
-        const confirmed = confirm("确定删除这张专辑吗？");
+        if (!confirm("确定删除这张专辑吗？")) return;
 
-        if (!confirmed) return;
-
-        if (deleteAlbum(id)) {
-            renderAlbums();
-            updateStatistics();
+        try {
+            await deleteAlbum(id);
+            await refreshAlbums();
+        } catch (error) {
+            showError(error);
         }
+
+        return;
     }
 
     if (action === "favorite") {
-        const album = getAlbums().find(
-            item => item.id === id
-        );
+        const album = albumsCache.find(item => item.id === id);
 
         if (!album) return;
 
-        if (updateAlbum(id, {
-            favorite: !album.favorite
-        })) {
-            renderAlbums();
-            updateStatistics();
+        button.disabled = true;
+
+        try {
+            await updateAlbum(id, {
+                favorite: !album.favorite
+            });
+
+            await refreshAlbums();
+
+        } catch (error) {
+            showError(error);
+        } finally {
+            button.disabled = false;
         }
     }
 });
 
 // ===================================
-// 9. 搜索、筛选、排序
+// 11. 搜索、筛选、排序
 // ===================================
 
-searchInput.addEventListener("input", renderAlbums);
+searchInput?.addEventListener("input", renderAlbums);
 
-genreFilter.addEventListener("change", renderAlbums);
+genreFilter?.addEventListener("change", renderAlbums);
 
-sortSelect.addEventListener("change", renderAlbums);
+sortSelect?.addEventListener("change", renderAlbums);
 
 // ===================================
-// 10. 页面导航
+// 12. 页面导航
 // ===================================
 
 document.querySelectorAll(".nav-item").forEach(item => {
-    item.addEventListener("click", function(event) {
+    item.addEventListener("click", event => {
         event.preventDefault();
 
         document.querySelectorAll(".nav-item").forEach(nav => {
             nav.classList.remove("active");
         });
 
-        this.classList.add("active");
+        item.classList.add("active");
 
-        currentPage = this.dataset.page;
+        currentPage = item.dataset.page;
 
         renderAlbums();
     });
 });
 
 // ===================================
-// 11. 弹窗按钮
+// 13. 弹窗事件
 // ===================================
 
-addAlbumBtn.addEventListener("click", openAddModal);
+addAlbumBtn?.addEventListener("click", openAddModal);
 
-closeModal.addEventListener("click", hideModal);
+closeModal?.addEventListener("click", hideModal);
 
-albumModal.addEventListener("click", function(event) {
+albumModal?.addEventListener("click", event => {
     if (event.target === albumModal) {
         hideModal();
     }
 });
 
 // ===================================
-// 12. 启动程序
+// 14. 顶部用户信息和退出登录
 // ===================================
+
+function renderUserInfo() {
+    if (!authArea) return;
+
+    authArea.innerHTML = `
+        <span class="museum-user-email">
+            ${escapeHTML(currentUser.email || "已登录")}
+        </span>
+
+        <button
+            type="button"
+            class="museum-topbar-auth-link"
+            id="logoutBtn">
+            退出登录
+        </button>
+
+        <button class="add-button" id="addCloudAlbumBtn">
+            + 添加专辑
+        </button>
+    `;
+
+    $("addCloudAlbumBtn")?.addEventListener(
+        "click",
+        openAddModal
+    );
+
+    $("logoutBtn")?.addEventListener("click", async () => {
+        if (!confirm("确定退出登录吗？")) return;
+
+        try {
+            const { error } = await supabase.auth.signOut();
+
+            if (error) throw error;
+
+            window.location.replace("./login.html");
+
+        } catch (error) {
+            showError(error);
+        }
+    });
+}
+
+// ===================================
+// 15. 程序初始化
+// ===================================
+
+async function initApp() {
+    try {
+        // 检查登录状态
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) throw error;
+
+        if (!data.session) {
+            window.location.replace("./login.html");
+            return;
+        }
+
+        currentUser = data.session.user;
+
+        // 迁移旧数据
+        const migrated = await migrateLocalAlbums(
+            window.INITIAL_ALBUMS || []
+        );
+
+        if (migrated > 0) {
+            console.log(`成功迁移 ${migrated} 张旧专辑`);
+        }
+
+        // 加载云端数据
+        await refreshAlbums();
+
+        // 显示账号
+        renderUserInfo();
+
+        console.log("MUSEUM 云端版本启动成功！");
+
+    } catch (error) {
+        console.error("MUSEUM 初始化失败：", error);
+
+        alert(
+            "网站初始化失败：" +
+            (error.message || "未知错误") +
+            "\n请检查 Supabase 配置和数据库。"
+        );
+    }
+}
 
 initApp();
