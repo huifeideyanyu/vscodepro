@@ -23,7 +23,7 @@ window.INITIAL_ALBUMS = [
         rating: 9.8,
         favorite: true,
         review: "空灵、迷幻，华语音乐中非常特别的一张专辑。",
-        cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=600",
+        cover: "img/fuzao.jpg",
         createdAt: "2026-11-02T10:00:00"
     },
     {
@@ -35,7 +35,7 @@ window.INITIAL_ALBUMS = [
         rating: 9.5,
         favorite: true,
         review: "充满个性，编曲和演唱都极具辨识度。",
-        cover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600",
+        cover: "img/wz.jpg",
         createdAt: "2026-11-03T10:00:00"
     },
     {
@@ -47,19 +47,19 @@ window.INITIAL_ALBUMS = [
         rating: 9.3,
         favorite: true,
         review: "轻盈、精致，整体听感非常统一。",
-        cover: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=600",
+        cover: "img/get up.jpg",
         createdAt: "2026-11-04T10:00:00"
     },
     {
         id: "album_005",
-        name: "THE ALBUM",
+        name: "DEADLINE",
         artist: "BLACKPINK",
         year: 2020,
         genre: "Pop",
         rating: 8.2,
         favorite: false,
         review: "流行制作成熟，有不少抓耳的旋律。",
-        cover: "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=600",
+        cover: "img/dead line.jpg",
         createdAt: "2026-11-05T10:00:00"
     },
     {
@@ -71,7 +71,7 @@ window.INITIAL_ALBUMS = [
         rating: 9.1,
         favorite: false,
         review: "多种音乐元素融合得很有意思。",
-        cover: "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=600",
+        cover: "img/Sympa.jpg",
         createdAt: "2026-11-06T10:00:00"
     }
 ];
