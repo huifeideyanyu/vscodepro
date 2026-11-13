@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 / 注册 - Music Archive</title>
+
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body class="ma-auth-page">
+
+    <main class="ma-auth-container">
+
+        <div class="ma-auth-brand">
+            <div class="ma-auth-logo">♫</div>
+            <h1>Music Archive</h1>
+            <p>记录每一张值得收藏的专辑</p>
+        </div>
+
+        <section class="ma-auth-card">
+
+            <div class="ma-auth-tabs">
+                <button type="button" id="loginTab" class="ma-auth-tab active">
+                    登录
+                </button>
+
+                <button type="button" id="registerTab" class="ma-auth-tab">
+                    注册
+                </button>
+            </div>
+
+            <div class="ma-auth-heading">
+                <h2 id="authTitle">欢迎回来</h2>
+                <p id="authSubtitle">登录你的音乐档案馆</p>
+            </div>
+
+            <form id="authForm">
+
+                <div class="ma-auth-field">
+                    <label for="email">邮箱地址</label>
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="请输入邮箱地址"
+                        autocomplete="email"
+                        required
+                    >
+                </div>
+
+                <div class="ma-auth-field">
+                    <label for="password">密码</label>
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="请输入至少 6 位密码"
+                        minlength="6"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" id="submitBtn" class="ma-auth-submit">
+                    登录
+                </button>
+
+            </form>
+
+            <p id="authMessage" class="ma-auth-message" aria-live="polite"></p>
+
+            <div class="ma-auth-footer">
+                <a href="./index.html">返回音乐档案馆</a>
+            </div>
+
+        </section>
+
+        <p class="ma-auth-copyright">
+            © Music Archive · A place for music lovers
+        </p>
+
+    </main>
+
+    <script type="module" src="./js/auth.js"></script>
+
+</body>
+</html>
