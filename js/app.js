@@ -49,7 +49,8 @@ function escapeHTML(value) {
 }
 
 function generateId() {
-    return crypto.randomUUID();
+    return 'album_' + Date.now() + '_' +
+        Math.random().toString(36).substring(2, 10);
 }
 
 function showError(error) {
