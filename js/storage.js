@@ -128,7 +128,7 @@ export async function uploadCover(file, userId) {
         throw new Error("仅支持 JPG、PNG、WEBP 和 GIF");
     }
 
-    const path = `${userId}/${crypto.randomUUID()}.${extension}`;
+    const path = `${userId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${extension}`;
 
     const { error } = await supabase.storage
         .from("museum-covers")
@@ -224,7 +224,7 @@ export async function migrateLocalAlbums(initialAlbums = []) {
         }
 
         migrated.push({
-            id: crypto.randomUUID(),
+            id: 'album_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10),
             user_id: user.id,
             name: album.name || "未命名专辑",
             artist: album.artist || "未知艺术家",
